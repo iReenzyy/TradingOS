@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Trading OS | Glass Edition</title>
+    <style>
+        :root {
+            --bg-dark: #070b14;
+            --accent: #38bdf8;
+            --glass-bg: rgba(255, 255, 255, 0.03);
+            --glass-border: rgba(255, 255, 255, 0.08);
+            --glass-blur: blur(25px) saturate(180%);
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --hover: rgba(255, 255, 255, 0.07);
+            --sidebar-width: 280px;
+        }
+        
+        body, html { 
+            margin: 0; padding: 0; 
+            font-family: 'Segoe UI', system-ui, sans-serif; 
+            background-color: var(--bg-dark); 
+            color: var(--text-main); 
+            height: 100vh; 
+            width: 100vw;
+            overflow: hidden; 
+            position: relative;
+        }
+        
+        #content { 
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background-color: #000;
+            z-index: 1;
+        }
+        
+        iframe { width: 100%; height: 100%; border: none; display: block; }
+
+        /* Триггер стоит выше всех слоев и имеет ширину 15px для надежного захвата */
+        #sidebar-trigger {
+            position: fixed;
+            top: 0; left: 0; width: 15px; height: 100%;
+            z-index: 150;
+            cursor: pointer;
+        }
+
+        #mobile-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.6);
+            opacity: 0; visibility: hidden;
+            transition: opacity 0.3s ease;
+            z-index: 90;
+        }
+
+        #sidebar { 
+            position: fixed;
+            top: 0; left: 0; height: 100%;
+            width: var(--sidebar-width); 
+            background: var(--glass-bg); 
+            backdrop-filter: var(--glass-blur);
+            -webkit-backdrop-filter: var(--glass-blur);
+            padding: 40px 20px; 
+            display: flex; flex-direction: column; gap: 15px; 
+            border-right: 1px solid var(--glass-border); 
+            box-shadow: 10px 0 30px rgba(0,0,0,0.5);
+            z-index: 100;
+            
+            transform: translateX(-100%);
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            will-change: transform;
+        }
+
+        /* Исправленный селектор: ~ пробивает через другие div */
+        #sidebar:hover,
+        #sidebar-trigger:hover ~ #sidebar { 
+            transform: translateX(0); 
+        }
+
+        .logo { 
+            font-size: 24px; font-weight: 800; color: var(--accent); 
+            text-transform: uppercase; margin-bottom: 40px; 
+            letter-spacing: 2px; text-align: center;
+            text-shadow: 0 0 15px rgba(56, 189, 248, 0.5);
+            border-bottom: 1px solid var(--glass-border);
+            padding-bottom: 20px;
+        }
+        
+        .nav-btn { 
+            background: transparent; color: var(--text-muted); 
+            border: 1px solid transparent; 
+            padding: 16px 20px; border-radius: 8px; 
+            cursor: pointer; font-size: 16px; font-weight: 600; 
+            text-align: left; transition: all 0.2s ease; 
+            display: flex; align-items: center; gap: 12px;
+        }
+        
+        .nav-btn:hover { 
+            background: var(--hover); color: var(--text-main);
+            border-color: var(--glass-border);
+        }
+        
+        .nav-btn.active { 
+            background: rgba(56, 189, 248, 0.1); 
+            color: var(--accent); 
+            border-color: rgba(56, 189, 248, 0.3);
+            box-shadow: inset 0 0 10px rgba(56, 189, 248, 0.1);
+        }
+        
+        @media (max-width: 768px) {
+            :root { --sidebar-width: 100%; }
+            
+            #sidebar {
+                width: 100%;
+                border-right: none;
+                transition: transform 0.3s ease;
+            }
+            
+            #sidebar:hover, #sidebar-trigger:hover ~ #sidebar {
+                transform: translateX(-100%);
+            }
+
+            body.sidebar-open #sidebar { transform: translateX(0); }
+            body.sidebar-open #mobile-overlay { opacity: 1; visibility: visible; }
+        }
+    </style>
+</head>
+<body>
+    <div id="sidebar-trigger"></div>
+    <div id="mobile-overlay" onclick="closeSidebarMobile()"></div>
+
+    <div id="sidebar">
+        <div class="logo">TRADING OS</div>
+        <button class="nav-btn active" onclick="loadApp('journalpro/index.html', this)">📊 JournalPro</button>
+        <button class="nav-btn" onclick="loadApp('calculating_forex/index.html', this)">🧮 Risk Terminal</button>
+        <button class="nav-btn" onclick="loadApp('prop_discipline/index.html', this)">🛡️ FP Discipline</button>
+    </div>
+    
+    <div id="content">
+        <iframe id="app-frame" src="journalpro/index.html"></iframe>
+    </div>
+
+    <script>
+        function loadApp(url, btn) {
+            document.getElementById('app-frame').src = url;
+            document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            
+            if (window.innerWidth <= 768) {
+                closeSidebarMobile();
+            }
+        }
+
+        let touchStartX = 0;
+        let touchEndX = 0;
+        const minSwipeDistance = 50; 
+
+        function openSidebarMobile() {
+            document.body.classList.add('sidebar-open');
+        }
+
+        function closeSidebarMobile() {
+            document.body.classList.remove('sidebar-open');
+        }
+
+        document.addEventListener('touchstart', e => {
+            touchStartX = e.changedTouches[0].screenX;
+        }, false);
+
+        document.addEventListener('touchend', e => {
+            touchEndX = e.changedTouches[0].screenX;
+            handleSwipe();
+        }, false);
+
+        function handleSwipe() {
+            if (window.innerWidth > 768) return;
+
+            const distance = touchEndX - touchStartX;
+            
+            if (touchStartX < 50 && distance > minSwipeDistance) {
+                openSidebarMobile();
+            }
+            
+            if (document.body.classList.contains('sidebar-open') && distance < -minSwipeDistance) {
+                closeSidebarMobile();
+            }
+        }
+    </script>
+</body>
+</html>

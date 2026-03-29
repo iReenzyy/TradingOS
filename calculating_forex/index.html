@@ -1,0 +1,742 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Risk Terminal Pro</title>
+    
+    <link rel="manifest" id="my-manifest">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="apple-touch-icon" href="https://img.icons8.com/color/180/000000/bullish.png">
+
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700;800&family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+    
+    <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
+
+    <style>
+        :root {
+            --bg-color: #050505;
+            --card-bg: rgba(30, 30, 30, 0.6);
+            --input-bg: rgba(50, 50, 50, 0.4);
+            --text-main: #ffffff;
+            --text-muted: #888888;
+            
+            --accent-cyan: #1cd4cb; 
+            --danger: #ff5c5c;
+            --success: #3be37f;
+            --gold: #ffda3b;
+            --silver: #cbd5e1;
+
+            --glass-border: 1px solid rgba(255, 255, 255, 0.08);
+            --glow: 0 0 25px rgba(28, 212, 203, 0.08);
+            
+            /* Tilt Guard Vars */
+            --tilt-glow: 0;
+        }
+
+        body {
+            background-color: var(--bg-color); color: var(--text-main); font-family: 'Inter', sans-serif;
+            margin: 0; padding: 20px; min-height: 100vh; display: flex; justify-content: center;
+            align-items: center; box-sizing: border-box; background-image: radial-gradient(circle at 50% 0%, #151515, #000);
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* --- Global Layout --- */
+        .main-wrapper {
+            display: flex; gap: 20px; width: 100%; max-width: 1400px; 
+            align-items: stretch; justify-content: center;
+        }
+
+        /* --- App Container (Calculator) --- */
+        .app-container {
+            width: 100%; max-width: 460px; min-width: 320px; background: rgba(15, 15, 15, 0.6);
+            backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+            border-radius: 24px; padding: 25px; box-shadow: 0 20px 50px rgba(0,0,0,0.5), var(--glow);
+            border: var(--glass-border); position: relative; overflow: hidden;
+            display: flex; flex-direction: column; transition: background 0.3s;
+        }
+
+        /* Tilt Heartbeat Animation */
+        @keyframes heartbeat {
+            0% { box-shadow: inset 0 0 10px rgba(255,92,92, calc(var(--tilt-glow)*0.2)), 0 20px 50px rgba(0,0,0,0.5); border-color: rgba(255, 255, 255, 0.08); }
+            15% { box-shadow: inset 0 0 80px rgba(255,92,92, var(--tilt-glow)), 0 20px 50px rgba(0,0,0,0.5), 0 0 60px rgba(255,92,92, var(--tilt-glow)); border-color: rgba(255, 92, 92, var(--tilt-glow)); }
+            30% { box-shadow: inset 0 0 10px rgba(255,92,92, calc(var(--tilt-glow)*0.2)), 0 20px 50px rgba(0,0,0,0.5); border-color: rgba(255, 255, 255, 0.08); }
+            45% { box-shadow: inset 0 0 80px rgba(255,92,92, var(--tilt-glow)), 0 20px 50px rgba(0,0,0,0.5), 0 0 60px rgba(255,92,92, var(--tilt-glow)); border-color: rgba(255, 92, 92, var(--tilt-glow)); }
+            100% { box-shadow: inset 0 0 10px rgba(255,92,92, calc(var(--tilt-glow)*0.2)), 0 20px 50px rgba(0,0,0,0.5); border-color: rgba(255, 255, 255, 0.08); }
+        }
+
+        /* Ghost Warning Text */
+        .tilt-text {
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%) scale(1);
+            font-family: 'JetBrains Mono', monospace; font-size: 2.2rem; font-weight: 800;
+            color: rgba(255, 255, 255, 0.9); text-shadow: 0 0 40px #ff5c5c, 0 0 20px #ff5c5c;
+            text-align: center; pointer-events: none; z-index: 50;
+            opacity: 0; white-space: nowrap; width: 100%;
+        }
+
+        /* --- TradingView Chart Container (Desktop Only) --- */
+        .chart-container {
+            display: none; flex-grow: 1; background: rgba(13, 13, 13, 0.8);
+            backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+            border-radius: 24px; box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+            border: var(--glass-border); overflow: hidden; position: relative;
+        }
+
+        @media (min-width: 1024px) {
+            .chart-container { display: block; }
+        }
+
+        @media (max-width: 500px) {
+            body { align-items: flex-start; padding: 10px; }
+            .app-container { box-shadow: none; border: none; background: transparent; padding: 5px; }
+            .main-wrapper { gap: 0; }
+        }
+
+        /* --- Header & Lang Switch --- */
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-shrink: 0;}
+        .brand {
+            font-family: 'JetBrains Mono', monospace; font-weight: 800; font-size: 1.1rem;
+            letter-spacing: -1px; background: linear-gradient(90deg, #fff, #999);
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+        }
+        
+        .lang-switch { display: flex; background: rgba(255,255,255,0.08); border-radius: 6px; padding: 2px; z-index: 10; }
+        .lang-opt {
+            font-size: 0.65rem; padding: 4px 8px; border-radius: 4px; color: var(--text-muted);
+            cursor: pointer; font-weight: 800; font-family: 'JetBrains Mono'; transition: 0.2s;
+        }
+        .lang-opt.active { background: rgba(28, 212, 203, 0.2); color: var(--accent-cyan); }
+
+        /* --- Asset Chips --- */
+        .asset-scroll { 
+            display: flex; gap: 8px; overflow-x: auto; padding-bottom: 10px; margin-bottom: 15px; 
+            scrollbar-width: none; cursor: grab; flex-shrink: 0; z-index: 10;
+        }
+        .asset-scroll:active { cursor: grabbing; }
+        .asset-scroll::-webkit-scrollbar { display: none; }
+        
+        .chip {
+            background: var(--card-bg); border: var(--glass-border); color: var(--text-muted);
+            padding: 10px 16px; border-radius: 12px; font-size: 0.8rem; font-weight: 600;
+            white-space: nowrap; cursor: pointer; transition: all 0.2s; user-select: none;
+        }
+        
+        .chip.active { 
+            background: rgba(28, 212, 203, 0.15); color: var(--accent-cyan); 
+            border-color: rgba(28, 212, 203, 0.5); box-shadow: 0 0 15px rgba(28, 212, 203, 0.15); 
+        }
+        .chip[data-type="gold"].active { background: rgba(255, 218, 59, 0.15); color: var(--gold); border-color: rgba(255, 218, 59, 0.5); }
+        .chip[data-type="silver"].active { background: rgba(203, 213, 225, 0.15); color: var(--silver); border-color: rgba(203, 213, 225, 0.5); }
+        .chip[data-type="custom"] { border: 1px dashed rgba(255,255,255,0.25); }
+
+        /* --- Inputs --- */
+        .grid-row { display: flex; gap: 12px; margin-bottom: 12px; flex-shrink: 0; z-index: 10;}
+        .input-box { flex: 1; position: relative; display: flex; flex-direction: column; }
+        .input-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; height: 20px; }
+        label { font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700; margin: 0; }
+
+        input {
+            width: 100%; background: var(--input-bg); border: var(--glass-border); color: white;
+            padding: 12px; border-radius: 10px; font-family: 'JetBrains Mono', monospace;
+            font-size: 1rem; box-sizing: border-box; outline: none; transition: 0.2s; flex-grow: 1;
+        }
+        input:focus { border-color: rgba(28, 212, 203, 0.6); background: rgba(60, 60, 60, 0.6); }
+
+        .paste-icon { position: absolute; right: 10px; bottom: 12px; opacity: 0.3; cursor: pointer; font-size: 0.9rem; transition: 0.2s;}
+        .paste-icon:hover { opacity: 1; color: var(--accent-cyan); }
+
+        .risk-switch { display: flex; background: rgba(255,255,255,0.08); border-radius: 4px; padding: 2px; }
+        .switch-opt { font-size: 0.6rem; padding: 2px 6px; border-radius: 3px; color: var(--text-muted); cursor: pointer; font-weight: 700; transition: 0.2s;}
+        .switch-opt.active { background: rgba(255,255,255,0.9); color: #000; }
+
+        /* --- Visual & Slider --- */
+        .visual-section { background: var(--card-bg); border: var(--glass-border); padding: 20px; border-radius: 16px; margin: 20px 0; flex-shrink: 0; z-index: 10;}
+        canvas { width: 100%; height: 90px; background: rgba(0,0,0,0.2); border-radius: 8px; margin: 15px 0 5px 0; border: 1px solid rgba(255,255,255,0.03); }
+
+        input[type=range] { -webkit-appearance: none; width: 100%; background: transparent; margin: 15px 0 5px 0; padding: 0; }
+        input[type=range]::-webkit-slider-runnable-track { 
+            width: 100%; height: 6px; border-radius: 4px; border: var(--glass-border);
+            background: linear-gradient(90deg, rgba(28, 212, 203, 0.4) var(--ratio, 60%), rgba(255, 255, 255, 0.08) var(--ratio, 60%)); 
+        }
+        input[type=range]::-webkit-slider-thumb { 
+            -webkit-appearance: none; height: 20px; width: 20px; border-radius: 50%; 
+            background: rgba(255, 255, 255, 0.85); backdrop-filter: blur(4px); border: 1px solid rgba(255,255,255,0.5);
+            cursor: pointer; margin-top: -8px; box-shadow: 0 4px 10px rgba(0,0,0,0.3); 
+        }
+        .slider-label { display: flex; justify-content: space-between; font-size: 0.75rem; font-weight: 600; }
+
+        /* --- Results --- */
+        .results-grid { display: grid; gap: 12px; flex-shrink: 0; z-index: 10;}
+        .res-card { background: var(--card-bg); border: var(--glass-border); border-radius: 14px; padding: 15px 20px; position: relative; cursor: pointer; transition: transform 0.1s; }
+        .res-card:active { transform: scale(0.98); background: rgba(255,255,255,0.05); }
+        .res-card.market { border-left: 3px solid var(--accent-cyan); }
+        .res-card.limit { border-left: 3px solid var(--success); }
+        .res-top { display: flex; justify-content: space-between; font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700; margin-bottom: 5px; }
+        .res-val { font-family: 'JetBrains Mono'; font-size: 2.2rem; font-weight: 700; color: #fff; line-height: 1; }
+        .res-card.limit .res-val { color: var(--success); }
+        .res-sub { margin-top: 8px; padding-top: 8px; border-top: 1px solid rgba(255,255,255,0.08); font-size: 0.8rem; color: var(--text-muted); display: flex; justify-content: space-between; }
+        .copied-tooltip { position: absolute; right: 20px; top: 20px; background: var(--success); color: #000; padding: 4px 8px; border-radius: 4px; font-size: 0.7rem; font-weight: bold; opacity: 0; transition: opacity 0.2s; pointer-events: none; }
+
+        /* --- Compact Journal Button --- */
+        .btn-journal { 
+            background: rgba(255, 255, 255, 0.05); color: var(--text-muted); width: max-content; 
+            padding: 10px 24px; border-radius: 20px; font-weight: 600; font-size: 0.75rem; 
+            border: var(--glass-border); margin: 25px auto 0; cursor: pointer; display: flex; 
+            align-items: center; justify-content: center; gap: 8px; transition: 0.2s; backdrop-filter: blur(5px);
+            flex-shrink: 0; z-index: 10;
+        }
+        .btn-journal:hover { background: rgba(255, 255, 255, 0.15); color: var(--text-main); }
+        .btn-journal:active { transform: scale(0.95); }
+
+        /* --- Custom Modal --- */
+        .modal-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.7); backdrop-filter: blur(5px); -webkit-backdrop-filter: blur(5px);
+            display: flex; justify-content: center; align-items: center; z-index: 100;
+            opacity: 0; pointer-events: none; transition: 0.3s;
+        }
+        .modal-overlay.active { opacity: 1; pointer-events: all; }
+        .modal-card {
+            background: var(--card-bg); border: var(--glass-border); border-radius: 20px;
+            padding: 25px; width: 90%; max-width: 320px; box-shadow: 0 10px 40px rgba(0,0,0,0.8);
+            transform: translateY(20px); transition: 0.3s; backdrop-filter: blur(15px);
+        }
+        .modal-overlay.active .modal-card { transform: translateY(0); }
+        .modal-title { font-weight: 800; margin-bottom: 20px; color: var(--accent-cyan); font-family: 'JetBrains Mono'; text-transform: uppercase;}
+        .modal-btn { 
+            background: rgba(28, 212, 203, 0.15); color: var(--accent-cyan); 
+            border: 1px solid rgba(28, 212, 203, 0.4); width: 100%; padding: 12px; 
+            border-radius: 10px; font-weight: 800; font-size: 0.85rem; margin-top: 15px; 
+            cursor: pointer; transition: 0.2s; 
+        }
+        .modal-btn:hover { background: rgba(28, 212, 203, 0.3); }
+        .modal-close { position: absolute; right: 20px; top: 20px; color: var(--text-muted); font-size: 1.5rem; cursor: pointer; line-height: 1; transition: 0.2s;}
+        .modal-close:hover { color: #fff; }
+
+    </style>
+</head>
+<body>
+
+<div class="main-wrapper">
+    <div class="app-container" id="appBox">
+        
+        <div id="tiltWarningText" class="tilt-text" data-i18n="tilt_warn">HIGH RISK WARNING</div>
+
+        <div class="header">
+            <div class="brand" data-i18n="app_title">RISK//TERMINAL</div>
+            <div class="lang-switch">
+                <div class="lang-opt active" id="langEN" onclick="setLang('en')">EN</div>
+                <div class="lang-opt" id="langRU" onclick="setLang('ru')">RU</div>
+            </div>
+        </div>
+
+        <div class="asset-scroll" id="assetSlider">
+            <div class="chip active" onclick="setAsset(this, 'EURUSD')">EURUSD</div>
+            <div class="chip" onclick="setAsset(this, 'GBPUSD')">GBPUSD</div>
+            <div class="chip" onclick="setAsset(this, 'USDJPY')">USDJPY</div>
+            <div class="chip" data-type="gold" onclick="setAsset(this, 'XAUUSD')">XAUUSD</div>
+            <div class="chip" data-type="silver" onclick="setAsset(this, 'XAGUSD')">XAGUSD</div>
+            <div class="chip" data-type="custom" id="customChipBtn" onclick="openCustomModal()">⚙️ CUSTOM</div>
+        </div>
+
+        <div class="grid-row">
+            <div class="input-box">
+                <div class="input-header">
+                    <label data-i18n="risk_label">Risk</label>
+                    <div class="risk-switch">
+                        <div class="switch-opt active" id="modeUSD" onclick="toggleRisk('usd')">$</div>
+                        <div class="switch-opt" id="modePct" onclick="toggleRisk('pct')">%</div>
+                    </div>
+                </div>
+                <input type="number" id="riskInput" value="200" inputmode="decimal">
+            </div>
+            
+            <div class="input-box" id="balanceBox" style="display:none">
+                <div class="input-header"><label data-i18n="balance_label">Balance</label></div>
+                <input type="number" id="balanceInput" value="10000" inputmode="decimal">
+            </div>
+
+            <div class="input-box">
+                <div class="input-header"><label data-i18n="comm_label">Comm ($)</label></div>
+                <input type="number" id="commInput" value="7" inputmode="decimal">
+            </div>
+        </div>
+
+        <div class="grid-row">
+            <div class="input-box">
+                <div class="input-header"><label data-i18n="entry_label">Entry Price</label></div>
+                <input type="number" id="entryPrice" placeholder="0.00000" step="any" inputmode="decimal">
+                <span class="paste-icon" onclick="paste('entryPrice')">📋</span>
+            </div>
+            <div class="input-box">
+                <div class="input-header"><label data-i18n="stop_label">Stop Loss</label></div>
+                <input type="number" id="stopPrice" placeholder="0.00000" step="any" inputmode="decimal">
+                <span class="paste-icon" onclick="paste('stopPrice')">📋</span>
+            </div>
+        </div>
+
+        <div class="visual-section">
+            <div class="slider-label">
+                <span style="color:var(--accent-cyan)"><span data-i18n="lbl_market">MARKET</span> <span id="mktPct">60</span>%</span>
+                <span style="color:var(--success)"><span data-i18n="lbl_limit">LIMIT</span> <span id="lmtPct">40</span>%</span>
+            </div>
+            <input type="range" id="splitSlider" min="0" max="100" value="60" oninput="calc()">
+            
+            <canvas id="tradeCanvas" width="800" height="200"></canvas>
+            <div style="text-align:center; font-size:0.7rem; color:var(--text-muted);" data-i18n="limit_hint">
+                Limit Price adjusts based on Risk Split
+            </div>
+        </div>
+
+        <div class="results-grid">
+            <div class="res-card market" onclick="copyResult('resLot1', this)">
+                <div class="copied-tooltip" data-i18n="copied">COPIED</div>
+                <div class="res-top">
+                    <span data-i18n="mkt_order">1. Market Order</span> <span id="riskDisp1">$0</span>
+                </div>
+                <div class="res-val" id="resLot1">0.00</div>
+            </div>
+
+            <div class="res-card limit" onclick="copyResult('resLot2', this)">
+                <div class="copied-tooltip" data-i18n="copied">COPIED</div>
+                <div class="res-top">
+                    <span data-i18n="lmt_order">2. Limit Order</span> <span id="riskDisp2">$0</span>
+                </div>
+                <div class="res-val" id="resLot2">0.00</div>
+                <div class="res-sub">
+                    <span data-i18n="limit_price">Limit Price:</span> <span style="color:#fff; font-weight:bold" id="limitPriceVal">0.00000</span>
+                </div>
+            </div>
+        </div>
+
+        <button class="btn-journal" onclick="saveTradeCard()">
+            📸 <span data-i18n="save_card">SAVE TRADE CARD</span>
+        </button>
+    </div>
+
+    <div class="chart-container" id="tv_chart_container">
+        </div>
+</div>
+
+<div class="modal-overlay" id="customModal">
+    <div class="modal-card">
+        <div class="modal-close" onclick="closeCustomModal()">&times;</div>
+        <div class="modal-title" data-i18n="custom_title">CUSTOM ASSET SETUP</div>
+        
+        <div style="margin-bottom:12px;">
+            <label data-i18n="custom_name" style="font-size: 0.65rem; display:block; margin-bottom:5px;">Asset Name (e.g. US30)</label>
+            <input type="text" id="custName" value="US30" style="padding:10px;">
+        </div>
+        <div style="margin-bottom:12px;">
+            <label data-i18n="custom_contract" style="font-size: 0.65rem; display:block; margin-bottom:5px;">Contract Size</label>
+            <input type="number" id="custContract" value="10" step="any" inputmode="decimal" style="padding:10px;">
+        </div>
+        <div style="margin-bottom:12px;">
+            <label data-i18n="custom_tick" style="font-size: 0.65rem; display:block; margin-bottom:5px;">Tick Size (e.g. 0.01)</label>
+            <input type="number" id="custTick" value="0.01" step="any" inputmode="decimal" style="padding:10px;">
+        </div>
+        
+        <button class="modal-btn" onclick="saveCustomAsset()" data-i18n="btn_save">SAVE & APPLY</button>
+    </div>
+</div>
+
+<script>
+    // --- DICTIONARY (i18n) ---
+    const dict = {
+        en: {
+            app_title: "RISK//TERMINAL", risk_label: "Risk", balance_label: "Balance", comm_label: "Comm ($)",
+            entry_label: "Entry Price", stop_label: "Stop Loss", lbl_market: "MARKET", lbl_limit: "LIMIT",
+            limit_hint: "Limit Price adjusts based on Risk Split", mkt_order: "1. Market Order", lmt_order: "2. Limit Order",
+            limit_price: "Limit Price:", save_card: "SAVE CARD", copied: "COPIED",
+            waiting: "ENTER PRICES", canvas_sl: "SL", canvas_mkt: "ENTRY", canvas_lmt: "LIMIT",
+            custom_title: "CUSTOM ASSET SETUP", custom_name: "Asset Name (e.g. US30)", custom_contract: "Contract Size",
+            custom_tick: "Tick Size (e.g. 0.01)", btn_save: "SAVE & APPLY", card_risk: "Risk:", card_avg: "AVG ENTRY",
+            card_sl: "STOP LOSS", card_lot: "TOTAL LOT", tilt_warn: "HIGH RISK WARNING"
+        },
+        ru: {
+            app_title: "RISK//ТЕРМИНАЛ", risk_label: "Риск", balance_label: "Баланс", comm_label: "Комиссия ($)",
+            entry_label: "Цена Входа", stop_label: "Стоп Лосс", lbl_market: "РЫНОК", lbl_limit: "ЛИМИТ",
+            limit_hint: "Лимитка двигается от ползунка риска", mkt_order: "1. По Рынку", lmt_order: "2. Лимитка",
+            limit_price: "Цена Лимита:", save_card: "СОХРАНИТЬ КАРТОЧКУ", copied: "СКОПИРОВАНО",
+            waiting: "ВВЕДИТЕ ЦЕНЫ", canvas_sl: "СТОП", canvas_mkt: "ВХОД", canvas_lmt: "ЛИМИТ",
+            custom_title: "НАСТРОЙКА АКТИВА", custom_name: "Название (напр. US30)", custom_contract: "Размер контракта",
+            custom_tick: "Размер тика (напр. 0.01)", btn_save: "СОХРАНИТЬ", card_risk: "Риск:", card_avg: "СРЕДНИЙ ВХОД",
+            card_sl: "СТОП ЛОСС", card_lot: "ОБЩИЙ ЛОТ", tilt_warn: "КРИТИЧЕСКИЙ РИСК"
+        }
+    };
+
+    let ASSETS = {
+        'EURUSD': { type: 'direct', contract: 100000, tick: 0.00001, digits: 5, tvSymbol: "FX:EURUSD" },
+        'GBPUSD': { type: 'direct', contract: 100000, tick: 0.00001, digits: 5, tvSymbol: "FX:GBPUSD" },
+        'USDJPY': { type: 'inverted', contract: 100000, tick: 0.001, digits: 3, tvSymbol: "FX:USDJPY" },
+        'XAUUSD': { type: 'gold', contract: 100, tick: 0.01, digits: 2, tvSymbol: "OANDA:XAUUSD" },
+        'XAGUSD': { type: 'direct', contract: 5000, tick: 0.001, digits: 3, tvSymbol: "OANDA:XAGUSD" },
+        'CUSTOM': { type: 'direct', contract: 10, tick: 0.01, digits: 2, name: 'CUSTOM', tvSymbol: "US30" }
+    };
+    let state = { asset: 'EURUSD', riskMode: 'usd', lang: 'en' };
+
+    // --- PWA GENERATOR ---
+    const manifest = {
+        name: "Risk Terminal", short_name: "RiskCalc", start_url: ".", display: "standalone",
+        background_color: "#050505", theme_color: "#050505",
+        icons: [{ src: "https://img.icons8.com/color/180/000000/bullish.png", sizes: "192x192", type: "image/png" }]
+    };
+    const blob = new Blob([JSON.stringify(manifest)], {type: 'application/json'});
+    document.getElementById('my-manifest').setAttribute('href', URL.createObjectURL(blob));
+
+    // --- INIT ---
+    function init() {
+        ['riskInput','balanceInput','commInput','entryPrice','stopPrice'].forEach(id => {
+            document.getElementById(id).addEventListener('input', calc);
+        });
+        setupAutoScroll();
+        calc();
+        initTradingView(ASSETS[state.asset].tvSymbol);
+    }
+
+    // --- TRADINGVIEW INTEGRATION ---
+    function initTradingView(symbol) {
+        if (window.innerWidth < 1024) return; 
+        document.getElementById('tv_chart_container').innerHTML = '';
+        new TradingView.widget({
+            "autosize": true, "symbol": symbol, "interval": "15", "timezone": "Etc/UTC",
+            "theme": "dark", "style": "1", "locale": state.lang === 'ru' ? "ru" : "en",
+            "enable_publishing": false, "backgroundColor": "#0d0d0d", "gridColor": "rgba(255, 255, 255, 0.04)",
+            "hide_top_toolbar": false, "hide_legend": false, "save_image": false,
+            "container_id": "tv_chart_container", "toolbar_bg": "#0d0d0d"
+        });
+    }
+
+    // --- DYNAMIC AUTO SCROLL SYSTEM ---
+    function setupAutoScroll() {
+        const slider = document.getElementById('assetSlider');
+        let isDown = false, isPaused = false;
+        let startX, scrollLeft, scrollDir = 1, resumeTimeout = null, virtualScroll = 0;
+
+        function pauseInteraction() { isPaused = true; clearTimeout(resumeTimeout); }
+        function resumeInteraction() {
+            isDown = false; clearTimeout(resumeTimeout);
+            resumeTimeout = setTimeout(() => { isPaused = false; virtualScroll = slider.scrollLeft; }, 5000);
+        }
+
+        slider.addEventListener('mousedown', (e) => {
+            isDown = true; pauseInteraction();
+            startX = e.pageX - slider.offsetLeft; scrollLeft = slider.scrollLeft;
+        });
+        slider.addEventListener('mouseleave', () => { isDown = false; resumeInteraction(); });
+        slider.addEventListener('mouseup', () => { isDown = false; resumeInteraction(); });
+        slider.addEventListener('mousemove', (e) => {
+            if (!isDown) return; e.preventDefault();
+            const x = e.pageX - slider.offsetLeft; slider.scrollLeft = scrollLeft - (x - startX) * 2;
+        });
+
+        slider.addEventListener('touchstart', pauseInteraction, {passive: true});
+        slider.addEventListener('touchend', resumeInteraction);
+        slider.addEventListener('mouseenter', pauseInteraction);
+
+        function autoScroll() {
+            if (!isPaused && !isDown) {
+                virtualScroll += 0.25 * scrollDir; 
+                slider.scrollLeft = virtualScroll;
+                if (Math.abs(slider.scrollLeft - virtualScroll) > 1.5) virtualScroll = slider.scrollLeft;
+                if (slider.scrollLeft >= (slider.scrollWidth - slider.clientWidth - 1)) scrollDir = -1; 
+                else if (slider.scrollLeft <= 0) scrollDir = 1;  
+            }
+            requestAnimationFrame(autoScroll);
+        }
+        setTimeout(() => { virtualScroll = slider.scrollLeft; requestAnimationFrame(autoScroll); }, 500);
+    }
+
+    // --- LANGUAGE SYSTEM ---
+    function setLang(lang) {
+        state.lang = lang;
+        document.getElementById('langEN').classList.toggle('active', lang === 'en');
+        document.getElementById('langRU').classList.toggle('active', lang === 'ru');
+        
+        document.querySelectorAll('[data-i18n]').forEach(el => {
+            const key = el.getAttribute('data-i18n');
+            if(dict[lang][key]) el.innerText = dict[lang][key];
+        });
+        calc(); 
+        initTradingView(ASSETS[state.asset].tvSymbol || state.asset);
+    }
+    const t = (key) => dict[state.lang][key] || key;
+
+    // --- CUSTOM MODAL SYSTEM ---
+    function openCustomModal() { document.getElementById('customModal').classList.add('active'); }
+    function closeCustomModal() { document.getElementById('customModal').classList.remove('active'); }
+    function saveCustomAsset() {
+        const name = document.getElementById('custName').value.toUpperCase() || 'CUSTOM';
+        const contract = parseFloat(document.getElementById('custContract').value) || 1;
+        const tick = parseFloat(document.getElementById('custTick').value) || 0.01;
+        const digits = (tick.toString().split('.')[1] || '').length;
+
+        ASSETS['CUSTOM'] = { type: 'direct', contract: contract, tick: tick, digits: digits, name: name, tvSymbol: name };
+        
+        const customBtn = document.getElementById('customChipBtn');
+        customBtn.innerText = "⚙️ " + name;
+        
+        closeCustomModal();
+        setAsset(customBtn, 'CUSTOM');
+    }
+
+    // --- LOGIC ---
+    function setAsset(el, key) {
+        document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+        el.classList.add('active');
+        state.asset = key;
+        calc();
+        initTradingView(ASSETS[key].tvSymbol || ASSETS[key].name);
+    }
+
+    function toggleRisk(mode) {
+        state.riskMode = mode;
+        document.getElementById('modeUSD').classList.toggle('active', mode === 'usd');
+        document.getElementById('modePct').classList.toggle('active', mode === 'pct');
+        document.getElementById('balanceBox').style.display = mode === 'pct' ? 'flex' : 'none';
+        calc();
+    }
+
+    function getTickValue(assetKey, price) {
+        const data = ASSETS[assetKey];
+        if(!data) return 1;
+        let val = data.contract * data.tick;
+        if(data.type === 'inverted' && price > 0) val = val / price;
+        return val;
+    }
+
+    // --- TILT GUARD & CALCULATION ---
+    function calc() {
+        let riskVal = parseFloat(document.getElementById('riskInput').value) || 0;
+        let bal = parseFloat(document.getElementById('balanceInput').value) || 0;
+        if (bal <= 0) bal = 10000; 
+        
+        let riskPct = 0;
+
+        if (state.riskMode === 'pct') {
+            if (riskVal > 20) {
+                riskVal = 20;
+                document.getElementById('riskInput').value = 20;
+            }
+            riskPct = riskVal;
+        } else {
+            const maxUsd = bal * 0.20;
+            if (riskVal > maxUsd) {
+                riskVal = maxUsd;
+                document.getElementById('riskInput').value = maxUsd.toFixed(0);
+            }
+            riskPct = (riskVal / bal) * 100;
+        }
+
+        let tiltIntensity = 0;
+        if (riskPct > 3) {
+            tiltIntensity = Math.min((riskPct - 3) / 17, 1); 
+        }
+
+        const appBox = document.getElementById('appBox');
+        const warnText = document.getElementById('tiltWarningText');
+
+        if (tiltIntensity > 0) {
+            appBox.style.setProperty('--tilt-glow', tiltIntensity);
+            appBox.style.animation = `heartbeat ${1.5 - (tiltIntensity * 0.8)}s infinite`;
+            appBox.style.background = `rgba(${15 + (tiltIntensity * 60)}, 15, 15, 0.6)`;
+            
+            warnText.style.transition = 'none';
+            warnText.style.opacity = tiltIntensity * 0.9;
+            warnText.style.transform = `translate(-50%, -50%) scale(${1 + (tiltIntensity * 0.2)})`;
+            
+            void warnText.offsetWidth; 
+            
+            warnText.style.transition = 'all 1.5s cubic-bezier(0.1, 0.9, 0.2, 1)';
+            warnText.style.opacity = 0;
+            warnText.style.transform = `translate(-50%, -50%) scale(1)`;
+        } else {
+            appBox.style.setProperty('--tilt-glow', 0);
+            appBox.style.animation = 'none';
+            appBox.style.background = 'rgba(15, 15, 15, 0.6)';
+            warnText.style.opacity = 0;
+        }
+
+        const comm = parseFloat(document.getElementById('commInput').value) || 0;
+        const entry = parseFloat(document.getElementById('entryPrice').value) || 0;
+        const stop = parseFloat(document.getElementById('stopPrice').value) || 0;
+        
+        const split = parseInt(document.getElementById('splitSlider').value);
+        const retreat = 100 - split; 
+
+        document.getElementById('splitSlider').style.setProperty('--ratio', split + '%');
+        document.getElementById('mktPct').innerText = split;
+        document.getElementById('lmtPct').innerText = 100 - split;
+
+        const data = ASSETS[state.asset];
+        let finalRisk = riskVal;
+        if(state.riskMode === 'pct') {
+            finalRisk = bal * (riskVal / 100);
+        }
+
+        if(entry && stop && entry !== stop) {
+            const limitPrice = entry + (stop - entry) * (retreat / 100);
+            const tickVal = getTickValue(state.asset, entry);
+            
+            const dist = Math.abs(entry - stop);
+            const lossPerLot = ((dist / data.tick) * tickVal) + comm;
+            
+            const distLimit = Math.abs(limitPrice - stop);
+            const lossPerLotLimit = ((distLimit / data.tick) * tickVal) + comm;
+
+            const r1 = finalRisk * (split / 100);
+            const r2 = finalRisk * ((100 - split) / 100);
+
+            const l1 = lossPerLot > 0 ? r1 / lossPerLot : 0;
+            const l2 = lossPerLotLimit > 0 ? r2 / lossPerLotLimit : 0;
+
+            document.getElementById('resLot1').innerText = l1.toFixed(2);
+            document.getElementById('resLot2').innerText = l2.toFixed(2);
+            document.getElementById('riskDisp1').innerText = `~$${r1.toFixed(0)}`;
+            document.getElementById('riskDisp2').innerText = `~$${r2.toFixed(0)}`;
+            document.getElementById('limitPriceVal').innerText = limitPrice.toFixed(data.digits);
+
+            drawVisuals(entry, stop, limitPrice);
+        } else {
+             drawVisuals(0, 0, 0, true);
+        }
+    }
+
+    // --- CANVAS RENDERER ---
+    function drawVisuals(entry, stop, limit, isEmpty = false) {
+        const c = document.getElementById('tradeCanvas');
+        const ctx = c.getContext('2d');
+        const w = c.width; const h = c.height;
+
+        ctx.clearRect(0, 0, w, h);
+
+        if(isEmpty) {
+            ctx.fillStyle = "#444"; ctx.font = "30px Inter"; ctx.textAlign = "center";
+            ctx.fillText(t('waiting'), w/2, h/2 + 10); return;
+        }
+
+        const maxP = Math.max(entry, stop);
+        const minP = Math.min(entry, stop);
+        const range = maxP - minP;
+        const padding = range * 0.3; 
+
+        const mapY = (p) => ((maxP + padding - p) / (range + padding * 2)) * h;
+
+        const yEntry = mapY(entry); const yStop = mapY(stop); const yLimit = mapY(limit);
+
+        const line = (y, color, width, dash = []) => {
+            ctx.beginPath(); ctx.lineWidth = width; ctx.strokeStyle = color; ctx.setLineDash(dash);
+            ctx.moveTo(20, y); ctx.lineTo(w - 20, y); ctx.stroke();
+        };
+        const circle = (y, color) => {
+            ctx.beginPath(); ctx.arc(w - 20, y, 6, 0, 2 * Math.PI); ctx.fillStyle = color; ctx.fill();
+        };
+
+        ctx.globalAlpha = 0.15; ctx.fillStyle = '#ff5c5c';
+        ctx.fillRect(20, Math.min(yStop, yEntry), w-40, Math.abs(yStop - yEntry));
+        ctx.globalAlpha = 1.0;
+
+        line(yStop, '#ff5c5c', 4); circle(yStop, '#ff5c5c');
+        ctx.fillStyle = '#ff5c5c'; ctx.font = "bold 24px Inter"; ctx.textAlign = "left";
+        ctx.fillText(t('canvas_sl'), 25, yStop - 10);
+
+        line(yEntry, '#1cd4cb', 4); circle(yEntry, '#1cd4cb');
+        ctx.fillStyle = '#1cd4cb'; ctx.fillText(t('canvas_mkt'), 25, yEntry - 10);
+
+        line(yLimit, '#3be37f', 3, [10, 10]); circle(yLimit, '#3be37f');
+        ctx.fillStyle = '#3be37f'; ctx.fillText(t('canvas_lmt'), 25, yLimit - 10);
+    }
+
+    // --- ENHANCED JOURNAL CARD ---
+    function saveTradeCard() {
+        const entry = parseFloat(document.getElementById('entryPrice').value);
+        const stop = parseFloat(document.getElementById('stopPrice').value);
+        const limit = parseFloat(document.getElementById('limitPriceVal').innerText);
+        const l1 = parseFloat(document.getElementById('resLot1').innerText);
+        const l2 = parseFloat(document.getElementById('resLot2').innerText);
+        
+        if(!entry || !stop) return;
+
+        const totalLots = l1 + l2;
+        let avgPrice = entry;
+        if(totalLots > 0) avgPrice = ((entry * l1) + (limit * l2)) / totalLots;
+
+        const canvas = document.createElement('canvas');
+        canvas.width = 600; canvas.height = 400; const ctx = canvas.getContext('2d');
+
+        const grd = ctx.createRadialGradient(300, 0, 0, 300, 0, 500);
+        grd.addColorStop(0, "#151515");
+        grd.addColorStop(1, "#000000");
+        ctx.fillStyle = grd; ctx.fillRect(0, 0, 600, 400);
+        
+        ctx.shadowColor = "rgba(28, 212, 203, 0.15)"; ctx.shadowBlur = 40;
+        ctx.fillStyle = "rgba(25, 25, 25, 0.8)";
+        if(ctx.roundRect) ctx.roundRect(30, 30, 540, 340, 20); else ctx.fillRect(30, 30, 540, 340);
+        ctx.fill();
+        ctx.shadowBlur = 0; 
+        
+        ctx.lineWidth = 1; ctx.strokeStyle = "rgba(255, 255, 255, 0.1)"; ctx.stroke();
+        
+        ctx.font = "800 32px 'JetBrains Mono', monospace"; ctx.fillStyle = "#ffffff";
+        const assetName = state.asset === 'CUSTOM' ? ASSETS['CUSTOM'].name : state.asset;
+        ctx.fillText(assetName, 60, 90);
+        
+        ctx.font = "600 18px 'Inter', sans-serif"; ctx.fillStyle = "#888888";
+        let riskText = "";
+        const riskVal = parseFloat(document.getElementById('riskInput').value) || 0;
+        if (state.riskMode === 'pct') {
+            const bal = parseFloat(document.getElementById('balanceInput').value) || 0;
+            const riskUsd = bal * (riskVal / 100);
+            riskText = `${t('card_risk')} $${riskUsd.toFixed(0)} (${riskVal}%)`;
+        } else {
+            riskText = `${t('card_risk')} $${riskVal.toFixed(0)}`;
+        }
+        
+        ctx.textAlign = "right"; ctx.fillText(riskText, 540, 85); ctx.textAlign = "left";
+
+        const drawRow = (label, val, y, color) => {
+            ctx.font = "700 16px 'Inter', sans-serif"; ctx.fillStyle = "#888888"; ctx.fillText(label, 60, y);
+            ctx.font = "800 24px 'JetBrains Mono', monospace"; ctx.fillStyle = color; ctx.fillText(val, 240, y);
+        }
+
+        const digits = ASSETS[state.asset].digits;
+        drawRow(t('card_avg'), avgPrice.toFixed(digits), 170, "#ffda3b"); 
+        drawRow(t('card_sl'), stop.toFixed(digits), 230, "#ff5c5c"); 
+        drawRow(t('card_lot'), totalLots.toFixed(2), 290, "#1cd4cb"); 
+
+        ctx.font = "800 14px 'JetBrains Mono', monospace"; ctx.fillStyle = "rgba(255, 255, 255, 0.2)"; 
+        ctx.fillText("RISK//TERMINAL", 60, 340);
+
+        const link = document.createElement('a'); link.download = `Trade_${assetName}_${Date.now()}.png`;
+        link.href = canvas.toDataURL(); link.click();
+    }
+
+    if (CanvasRenderingContext2D.prototype.roundRect === undefined) {
+        CanvasRenderingContext2D.prototype.roundRect = function (x, y, w, h, r) {
+            if (w < 2 * r) r = w / 2; if (h < 2 * r) r = h / 2;
+            this.beginPath(); this.moveTo(x + r, y); this.arcTo(x + w, y, x + w, y + h, r);
+            this.arcTo(x + w, y + h, x, y + h, r); this.arcTo(x, y + h, x, y, r); this.arcTo(x, y, x + w, y, r);
+            this.closePath(); return this;
+        };
+    }
+
+    async function paste(id) {
+        try {
+            const text = await navigator.clipboard.readText();
+            const num = parseFloat(text.replace(',','.').replace(/[^0-9.]/g,''));
+            if(!isNaN(num)) { document.getElementById(id).value = num; if(navigator.vibrate) navigator.vibrate(20); calc(); }
+        } catch(e) {}
+    }
+
+    function copyResult(id, cardEl) {
+        navigator.clipboard.writeText(document.getElementById(id).innerText);
+        if(navigator.vibrate) navigator.vibrate(40);
+        const tip = cardEl.querySelector('.copied-tooltip');
+        tip.style.opacity = '1'; setTimeout(() => tip.style.opacity = '0', 1000);
+    }
+
+    init();
+</script>
+</body>
+</html>
