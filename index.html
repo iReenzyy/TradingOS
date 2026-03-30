@@ -37,12 +37,15 @@
         
         iframe { width: 100%; height: 100%; border: none; display: block; }
 
-        /* Триггер стоит выше всех слоев и имеет ширину 15px для надежного захвата */
         #sidebar-trigger {
             position: fixed;
-            top: 0; left: 0; width: 15px; height: 100%;
+            top: 0; left: 0; width: 30px; height: 100%;
             z-index: 150;
             cursor: pointer;
+        }
+
+        #mobile-swipe-zone {
+            display: none;
         }
 
         #mobile-overlay {
@@ -51,6 +54,29 @@
             opacity: 0; visibility: hidden;
             transition: opacity 0.3s ease;
             z-index: 90;
+        }
+
+        /* Визуальный маркер (неоновая капсула) */
+        #edge-marker {
+            position: fixed;
+            top: 50%;
+            left: 0;
+            width: 4px;
+            height: 60px;
+            background-color: var(--accent);
+            transform: translateY(-50%);
+            border-radius: 0 4px 4px 0;
+            box-shadow: 0 0 8px var(--accent), 0 0 16px rgba(56, 189, 248, 0.4);
+            z-index: 95; /* Лежит под сайдбаром, но над контентом */
+            pointer-events: none; /* Пропускает все нажатия сквозь себя */
+            opacity: 0.7;
+            animation: pulse 2.5s infinite ease-in-out;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 0.3; height: 50px; box-shadow: 0 0 4px var(--accent); }
+            50% { opacity: 0.9; height: 65px; box-shadow: 0 0 12px var(--accent), 0 0 24px rgba(56, 189, 248, 0.6); }
+            100% { opacity: 0.3; height: 50px; box-shadow: 0 0 4px var(--accent); }
         }
 
         #sidebar { 
@@ -71,7 +97,6 @@
             will-change: transform;
         }
 
-        /* Исправленный селектор: ~ пробивает через другие div */
         #sidebar:hover,
         #sidebar-trigger:hover ~ #sidebar { 
             transform: translateX(0); 
@@ -110,6 +135,15 @@
         @media (max-width: 768px) {
             :root { --sidebar-width: 100%; }
             
+            body { touch-action: pan-y; }
+
+            #mobile-swipe-zone {
+                display: block;
+                position: fixed;
+                top: 0; left: 0; width: 40px; height: 100%;
+                z-index: 80; 
+            }
+            
             #sidebar {
                 width: 100%;
                 border-right: none;
@@ -122,11 +156,16 @@
 
             body.sidebar-open #sidebar { transform: translateX(0); }
             body.sidebar-open #mobile-overlay { opacity: 1; visibility: visible; }
+            
+            /* Скрываем маркер, когда панель открыта на весь экран (для мобильных) */
+            body.sidebar-open #edge-marker { opacity: 0; animation: none; }
         }
     </style>
 </head>
 <body>
     <div id="sidebar-trigger"></div>
+    <div id="mobile-swipe-zone"></div>
+    <div id="edge-marker"></div>
     <div id="mobile-overlay" onclick="closeSidebarMobile()"></div>
 
     <div id="sidebar">
@@ -153,7 +192,7 @@
 
         let touchStartX = 0;
         let touchEndX = 0;
-        const minSwipeDistance = 50; 
+        const minSwipeDistance = 40; 
 
         function openSidebarMobile() {
             document.body.classList.add('sidebar-open');
@@ -165,19 +204,19 @@
 
         document.addEventListener('touchstart', e => {
             touchStartX = e.changedTouches[0].screenX;
-        }, false);
+        }, { passive: true });
 
         document.addEventListener('touchend', e => {
             touchEndX = e.changedTouches[0].screenX;
             handleSwipe();
-        }, false);
+        }, { passive: true });
 
         function handleSwipe() {
             if (window.innerWidth > 768) return;
 
             const distance = touchEndX - touchStartX;
             
-            if (touchStartX < 50 && distance > minSwipeDistance) {
+            if (touchStartX < 60 && distance > minSwipeDistance) {
                 openSidebarMobile();
             }
             
